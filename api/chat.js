@@ -10,24 +10,25 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Empty message" });
     }
 
-    if (!process.env.OPENAI_API_KEY) {
+    if (!process.env.GEMINI_API_KEY) {
       return res.status(500).json({
-        error: "OPENAI_API_KEY is not configured"
+        error: "GEMINI_API_KEY is not configured"
       });
     }
 
     const response = await fetch(
-      "https://api.openai.com/v1/responses",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": "Bearer " + process.env.OPENAI_API_KEY
+          "x-goog-api-key": process.env.GEMINI_API_KEY
         },
         body: JSON.stringify({
-          model: process.env.OPENAI_MODEL || "gpt-5-mini",
-
-          instructions: `
+          systemInstruction: {
+            parts: [
+              {
+                text: `
 You are King AI 👑.
 
 Talk like a close Indian friend.
@@ -42,9 +43,20 @@ give a clear and responsible answer.
 
 Be helpful, honest and conversational.
 Never claim that you are the real ChatGPT.
-`,
-
-          input: message
+`
+              }
+            ]
+          },
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  text: message
+                }
+              ]
+            }
+          ]
         })
       }
     );
@@ -53,12 +65,21 @@ Never claim that you are the real ChatGPT.
 
     if (!response.ok) {
       return res.status(response.status).json({
-        error: data.error?.message || "AI request failed"
+        error:
+          data?.error?.message ||
+          "Gemini AI request failed"
       });
     }
 
+    const reply =
+      data?.candidates?.[0]?.content?.parts
+        ?.map(part => part.text || "")
+        .join("")
+        .trim() ||
+      "Bhai response nahi mila 😭";
+
     return res.status(200).json({
-      reply: data.output_text || "Bhai response nahi mila 😭"
+      reply
     });
 
   } catch (error) {
